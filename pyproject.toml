@@ -11,11 +11,23 @@ license = {text = "Apache-2.0"}
 authors = [
     {name = "Runtian Xu", email = "xuruntian03@163.com"},
 ]
-keywords = ["robotics", "lerobot", "realman"]
+
 dependencies = [
+    "absl-py>=2.3.1",
     "dora-rs-cli (>=0.3.11,<0.4.0)",
     "draccus>=0.9.3",
+    "easyhid>=0.0.10",
+    "gym>=0.26.2",
+    "gymnasium>=1.1.1",
+    "jax>=0.4.30",
     "logging_mp",
+    "numpy>=1.26.4",
+    "opencv-python>=4.8.1.78",
+    "pynput>=1.8.1",
+    "pyquaternion>=0.9.9",
+    "pyrealsense2>=2.56.5.9235",
+    "requests>=2.32.5",
+    "scipy>=1.13.1",
 ]
 [project.optional-dependencies]
 hardware = [

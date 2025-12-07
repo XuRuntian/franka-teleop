@@ -1,18 +1,29 @@
+import sys
+import os
+
+PROJECT_ROOT = "/home/user/franka-teleop"
+EXPERIMENTS_PATH = os.path.join(PROJECT_ROOT, "experiments")
+
+sys.path.insert(0, PROJECT_ROOT)      
+sys.path.insert(0, EXPERIMENTS_PATH)  
+
+print("✅ 已添加路径：", PROJECT_ROOT)
+print("✅ 已添加路径：", EXPERIMENTS_PATH)
+print("🔍 Python搜索路径：", sys.path[:2])  
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import requests
 import time
-import pyrealsense2 as rs
-import cv2
 import argparse
-import os
 from absl import app, flags
 import threading
-import sys
-sys.path.append('../')
-from experiments.mappings import CONFIG_MAPPING
-import h5py
 
+from experiments.mappings import CONFIG_MAPPING  # 现在能找到
+from franka_env.envs.wrappers import *           # 现在能找到
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string("exp_name", "spacemouse_teleop", "Name of experiment corresponding to folder.")
 
 FLAGS = flags.FLAGS
 def get_pose_quat():
