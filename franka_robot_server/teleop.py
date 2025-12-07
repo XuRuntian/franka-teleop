@@ -1,7 +1,8 @@
 import sys
 import os
 
-PROJECT_ROOT = "/home/user/franka-teleop"
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 EXPERIMENTS_PATH = os.path.join(PROJECT_ROOT, "experiments")
 
 sys.path.insert(0, PROJECT_ROOT)      
