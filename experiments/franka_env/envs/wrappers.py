@@ -4,7 +4,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Box
 import copy
-from franka_env.spacemouse.spacemouse_expert import SpaceMouseExpert
+from franka_client.drivers.spacemouse_expert import SpaceMouseExpert
 import requests
 from scipy.spatial.transform import Rotation as R
 from franka_env.envs.franka_env import FrankaEnv

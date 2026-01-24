@@ -1,6 +1,6 @@
 import copy
 import time
-from franka_env.utils.rotations import euler_2_quat
+from franka_client.utils.rotations import euler_2_quat
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 import requests

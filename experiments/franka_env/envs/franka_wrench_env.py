@@ -16,7 +16,7 @@ from typing import Dict
 from franka_env.camera.video_capture import VideoCapture
 from franka_env.camera.multi_video_capture import MultiVideoCapture
 from franka_env.camera.rs_capture import RSCapture
-from franka_env.utils.rotations import euler_2_quat, quat_2_euler
+from franka_client.utils.rotations import euler_2_quat, quat_2_euler
 
 
 class ImageDisplayer(threading.Thread):

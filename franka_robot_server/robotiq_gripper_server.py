@@ -2,9 +2,10 @@ import subprocess
 import rospy
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_input as inputMsg
+import time
+from gripper_server import GripperServer
 
-from robot_servers.gripper_server import GripperServer
-
+import threading
 
 class RobotiqGripperServer(GripperServer):
     def __init__(self, gripper_ip):
@@ -13,7 +14,7 @@ class RobotiqGripperServer(GripperServer):
             [
                 "rosrun",
                 "robotiq_2f_gripper_control",
-                "Robotiq2FGripperTcpNode.py",
+                "Robotiq2FGripperRtuNode.py",
                 gripper_ip,
             ],
             stdout=subprocess.PIPE,
@@ -34,17 +35,31 @@ class RobotiqGripperServer(GripperServer):
     def activate_gripper(self):
         self.gripper_command = self._generate_gripper_command("a", self.gripper_command)
         self.gripperpub.publish(self.gripper_command)
+        rospy.loginfo("Waiting for gripper activation...")
+        time.sleep(2.5) # 给硬件初始化留出时间
 
     def reset_gripper(self):
+        # 1. 先彻底重置
         self.gripper_command = self._generate_gripper_command("r", self.gripper_command)
         self.gripperpub.publish(self.gripper_command)
+        time.sleep(0.5)
+        # 2. 再重新激活
         self.activate_gripper()
 
     def open(self):
+        # 开一个新线程去处理，不阻塞主逻辑
+        threading.Thread(target=self._open_task).start()
+
+    def _open_task(self):
         self.gripper_command = self._generate_gripper_command("o", self.gripper_command)
         self.gripperpub.publish(self.gripper_command)
+        # 如果需要等待动作完成，可以在这里 sleep，不会卡死主服务器
 
     def close(self):
+        # 开一个新线程去处理，不阻塞主逻辑
+        threading.Thread(target=self._close_task).start()
+
+    def _close_task(self):
         self.gripper_command = self._generate_gripper_command("c", self.gripper_command)
         self.gripperpub.publish(self.gripper_command)
 
@@ -61,39 +76,53 @@ class RobotiqGripperServer(GripperServer):
         self.gripper_pos = 1 - msg.gPO / 255
 
     def _generate_gripper_command(self, char, command):
-        """Update the gripper command according to the character entered by the user."""
+        """
+        修正后的 Robotiq 命令生成逻辑
+        确保 rACT (激活) 和 rGTO (运行到位置) 始终为有效状态
+        """
+        # 预设基础状态：确保夹爪处于激活并允许移动的状态
+        # 注意：这里不能每次都重置 command，要保留已有的配置
+        command.rACT = 1  # 强制保持激活
+        command.rGTO = 1  # 强制启用运动
+        
+        # 默认速度和力量（如果之前没设过）
+        if command.rSP == 0: command.rSP = 255
+        if command.rFR == 0: command.rFR = 150
+
         if char == "a":
-            command = outputMsg.Robotiq2FGripper_robot_output()
+            # 激活序列
             command.rACT = 1
             command.rGTO = 1
             command.rSP = 255
-            command.rFR = 30
+            command.rFR = 150
+            print("Gripper Command: ACTIVATE")
 
         elif char == "r":
-            command = outputMsg.Robotiq2FGripper_robot_output()
+            # 重置序列：ACT 必须为 0
             command.rACT = 0
-            command.rSP = 255
+            print("Gripper Command: RESET")
 
         elif char == "c":
-            command.rPR = 255
-            command.rSP = 255
+            command.rPR = 255 # 闭合
+            print("Gripper Command: CLOSE")
         
-        elif char == "cs":
-            command.rPR = 255
-            command.rSP = 50
-
         elif char == "o":
-            command.rPR = 175
-            command.rSP = 255
+            command.rPR = 0   # 打开
+            print("Gripper Command: OPEN")
 
-        # If the command entered is a int, assign this value to rPR
-        # (i.e., move to this position)
-        try:
-            command.rPR = int(char)
-            if command.rPR > 255:
-                command.rPR = 255
-            if command.rPR < 0:
-                command.rPR = 0
-        except ValueError:
-            pass
+        elif char == "cs":
+            # 慢速闭合
+            command.rPR = 255
+            command.rSP = 50 # 降低速度
+            print("Gripper Command: CLOSE SLOW")
+
+        else:
+            # 处理数值指令 (0-255)
+            try:
+                val = int(char)
+                command.rPR = max(0, min(255, val))
+                print(f"Gripper Command: MOVE TO {val}")
+            except (ValueError, TypeError):
+                pass
+
         return command

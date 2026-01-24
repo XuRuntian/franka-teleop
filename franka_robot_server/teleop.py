@@ -22,7 +22,40 @@ import threading
 
 from experiments.mappings import CONFIG_MAPPING  # 现在能找到
 from franka_env.envs.wrappers import *           # 现在能找到
+from pynput import keyboard  # 新增
+def emergency_joint_reset(url="http://127.0.0.2:5000/"):
+    """
+    完全独立的关节复位函数。
+    直接通过 HTTP 请求控制服务器，不依赖任何复杂的环境类或配置文件。
+    """
+    # 确保 URL 末尾有斜杠
+    if not url.endswith("/"):
+        url += "/"
+        
+    print(f"🔗 正在连接服务器: {url}")
+    
+    try:
+        # 1. 先尝试清除机器人当前的错误锁定
+        print("🛠️  正在清除错误状态 (clearerr)...")
+        requests.post(url + "clearerr", timeout=5)
+        
+        # 2. 发送关节复位请求
+        print("🤖 正在触发关节空间复位 (jointreset)...")
+        # 注意：复位过程较长，timeout 设久一点
+        response = requests.post(url + "jointreset", timeout=30)
+        
+        if response.status_code == 200:
+            print("✅ 指令已送达！机器人正在复位，请注意安全。")
+        else:
+            print(f"⚠️  服务器响应异常，状态码: {response.status_code}")
+            
+    except requests.exceptions.ConnectionError:
+        print(f"❌ 无法连接到服务器 {url}。请确认 franka_server.py 是否已启动？")
+    except Exception as e:
+        print(f"💥 复位过程中发生错误: {e}")
 
+# 用法：
+# emergency_reset(env)
 FLAGS = flags.FLAGS
 flags.DEFINE_string("exp_name", "spacemouse_teleop", "Name of experiment corresponding to folder.")
 
@@ -75,10 +108,26 @@ def main(_):
     assert FLAGS.exp_name in CONFIG_MAPPING, 'Experiment folder not found.'
     config = CONFIG_MAPPING[FLAGS.exp_name]()
     env = config.get_environment()
-    
+    server_url = getattr(config, 'SERVER_URL', "http://127.0.0.2:5000/")
     status = [0]
-    
+    # --- 新增键盘监听逻辑 ---
+    def on_press(key):
+        try:
+            # 监听 'r' 键触发关节复位
+            if hasattr(key, 'char') and key.char == 'r':
+                print("\n[KEYBOARD] 检测到按键 'r'，手动触发紧急关节复位...")
+                emergency_joint_reset(url=server_url)
+        except Exception as e:
+            print(f"监听器错误: {e}")
+
+    # 启动非阻塞监听器
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+    print("⌨️  键盘监听已启动：按下 'r' 键可随时触发关节复位。")
+    # -----------------------
     env.reset()
+    time.sleep(0.5)
+    emergency_joint_reset()
     print("Reset done")
 
     # input_thread = threading.Thread(target=listen_for_input, args=(env))

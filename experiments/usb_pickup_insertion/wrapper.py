@@ -1,7 +1,7 @@
 from typing import OrderedDict
 from franka_env.camera.rs_capture import RSCapture
 from franka_env.camera.video_capture import VideoCapture
-from franka_env.utils.rotations import euler_2_quat
+from franka_client.utils.rotations import euler_2_quat
 import numpy as np
 import requests
 import copy

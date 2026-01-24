@@ -21,14 +21,14 @@ flags.DEFINE_string(
     "robot_ip", "172.16.0.2", "IP address of the franka robot's controller box"
 )
 flags.DEFINE_string(
-    "gripper_ip", "192.168.1.114", "IP address of the robotiq gripper if being used"
+    "gripper_ip", "/dev/serial/by-id/usb-FTDI_USB_TO_RS-485_DAA5EKGA-if00-port0", "IP address of the robotiq gripper if being used"
 )
 flags.DEFINE_string(
     "gripper_type", "Robotiq", "Type of gripper to use: Robotiq, Franka, or None"
 )
 flags.DEFINE_list(
     "reset_joint_target",
-    [0, 0, 0, -1.9, -0, 2, 0],
+    [-0.04208642047256688,-0.47113820970015696,0.0625282082167652,-2.109408819053455,0.03543271986783029,1.56700976778037,-0.042043056534144564],
     "Target joint angles for the robot to reset to",
 )
 flags.DEFINE_string("flask_url", 
@@ -91,21 +91,26 @@ class FrankaServer:
         self.resetpub.publish(msg)
 
     def reset_joint(self):
-        """Resets Joints (needed after running for hours)"""
-        # First Stop impedance
+        """优化后的关节复位函数：更快的响应，更强的容错"""
+        print("--- STARTING JOINT RESET ---")
+        
+        # 1. 停止阻抗控制器并确保进程彻底结束
         try:
-            self.stop_impedance()
-            self.clear()
-        except:
-            print("impedance Not Running")
-        time.sleep(3)
+            if hasattr(self, 'imp') and self.imp.poll() is None:
+                self.imp.terminate()
+                # 轮询等待进程结束，最多等3秒，而不是死等
+                for _ in range(30):
+                    if self.imp.poll() is not None: break
+                    time.sleep(0.1)
+        except Exception as e:
+            print(f"Stop impedance failed: {e}")
+
+        # 彻底清除一次错误
         self.clear()
+        time.sleep(0.2) 
 
-        # Launch joint controller reset
-        # set rosparm with rospkg
-        # rosparam set /target_joint_positions '[q1, q2, q3, q4, q5, q6, q7]'
+        # 2. 设置目标参数并启动关节控制器
         rospy.set_param("/target_joint_positions", self.reset_joint_target)
-
         self.joint_controller = subprocess.Popen(
             [
                 "roslaunch",
@@ -116,35 +121,50 @@ class FrankaServer:
             ],
             stdout=subprocess.PIPE,
         )
-        time.sleep(1)
-        print("RUNNING JOINT RESET")
+
+        # 3. 动态等待控制器就绪
+        print("WAITING FOR JOINT CONTROLLER...")
+        time.sleep(1.0) # 给 launch 启动基础时间
         self.clear()
 
-        # Wait until target joint angles are reached
+        # 4. 关键改进：在循环中不断运行 clear() 并提高检查频率
         count = 0
-        time.sleep(1)
+        max_wait_steps = 150  # 0.1s * 150 = 15秒上限
+        
         while not np.allclose(
             np.array(self.reset_joint_target) - np.array(self.q),
             0,
-            atol=1e-2,
-            rtol=1e-2,
+            atol=1.5e-2, # 稍微放宽阈值避免最后 0.001 度的抖动卡死
+            rtol=1.5e-2,
         ):
-            time.sleep(1)
+            # 每 0.5 秒尝试清除一次错误，防止不连续性报错导致机器人锁死
+            if count % 5 == 0:
+                self.clear()
+            
+            time.sleep(0.1) # 提高检查频率（从 1s 改为 0.1s）
             count += 1
-            if count > 30:
-                print("joint reset TIMEOUT")
+            if count > max_wait_steps:
+                print("!!! JOINT RESET TIMEOUT !!!")
                 break
 
-        # Stop joint controller
-        print("RESET DONE")
-        self.joint_controller.terminate()
-        time.sleep(1)
-        self.clear()
-        print("KILLED JOINT RESET", self.pos)
+        # 5. 任务完成，清理并切回阻抗控制
+        print("RESET POSITION REACHED")
+        
+        try:
+            self.joint_controller.terminate()
+            # 同样轮询等待关节控制器退出，避免残留导致下次报错
+            for _ in range(20):
+                if self.joint_controller.poll() is not None: break
+                time.sleep(0.1)
+        except:
+            pass
 
-        # Restart impedece controller
+        self.clear()
+        time.sleep(0.2)
+        
+        # 重启阻抗控制器
         self.start_impedance()
-        print("impedance STARTED")
+        print("--- JOINT RESET COMPLETE & IMPEDANCE RESTARTED ---")
 
     def move(self, pose: list):
         """Moves to a pose: [x, y, z, qx, qy, qz, qw]"""

@@ -3,7 +3,7 @@ import gymnasium as gym
 import jax
 import numpy as np
 
-from franka_env.spacemouse.spacemouse_expert import SpaceMouseExpert
+from franka_client.drivers.spacemouse_expert import SpaceMouseExpert
 import time
 
 class EggClassifierWrapper(gym.Wrapper):

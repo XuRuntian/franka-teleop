@@ -1,7 +1,7 @@
 """ Test the spacemouse output. """
 import time
 import numpy as np
-from spacemouse_expert import SpaceMouseExpert
+from franka_client.drivers.spacemouse_expert import SpaceMouseExpert
 
 
 def test_spacemouse():
