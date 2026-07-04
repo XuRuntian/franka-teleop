@@ -11,6 +11,10 @@ def _float_list(value: str) -> list[float]:
     return [float(part) for part in value.split(",")]
 
 
+def _int_list(value: str) -> list[int]:
+    return [int(part) for part in value.split(",")]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Standalone SpaceMouse teleop for franka_robot_server.")
     parser.add_argument("--config", type=str, default=None, help="Path to a JSON teleop config.")
@@ -18,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rate-hz", type=float, default=None, help="Override command rate.")
     parser.add_argument("--translation-scale", type=float, default=None, help="Meters per full SpaceMouse step.")
     parser.add_argument("--rotation-scale", type=float, default=None, help="Radians per full SpaceMouse step.")
+    parser.add_argument("--deadband", type=float, default=None, help="Ignore SpaceMouse motion below this norm.")
     parser.add_argument(
         "--reference-frame",
         choices=["base", "tcp"],
@@ -29,6 +34,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tool-xyz", type=_float_list, default=None, help="Comma-separated EE-to-TCP xyz offset.")
     parser.add_argument("--tool-quat", type=_float_list, default=None, help="Comma-separated EE-to-TCP xyzw quaternion.")
     parser.add_argument("--disable-gripper", action="store_true", help="Disable SpaceMouse button gripper commands.")
+    parser.add_argument("--disable-reset", action="store_true", help="Disable long-press button joint reset.")
+    parser.add_argument("--reset-buttons", type=_int_list, default=None, help="Comma-separated reset chord button indices.")
+    parser.add_argument("--reset-hold-s", type=float, default=None, help="Seconds to hold reset buttons before reset.")
     return parser.parse_args()
 
 
@@ -40,12 +48,16 @@ def build_config(args: argparse.Namespace) -> TeleopConfig:
             "rate_hz": args.rate_hz,
             "translation_scale": args.translation_scale,
             "rotation_scale": args.rotation_scale,
+            "deadband": args.deadband,
             "reference_frame": args.reference_frame,
             "workspace_low": args.workspace_low,
             "workspace_high": args.workspace_high,
             "tool_xyz": args.tool_xyz,
             "tool_quat": args.tool_quat,
             "gripper_enabled": False if args.disable_gripper else None,
+            "reset_enabled": False if args.disable_reset else None,
+            "reset_button_indices": args.reset_buttons,
+            "reset_hold_s": args.reset_hold_s,
         }
     )
     return config

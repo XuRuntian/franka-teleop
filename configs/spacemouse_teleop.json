@@ -4,13 +4,14 @@
   "clear_errors": true,
   "apply_load_on_start": false,
   "motion": {
-    "rate_hz": 20.0,
-    "translation_scale": 0.04,
-    "rotation_scale": 0.1,
-    "deadband": 0.001,
-    "max_translation_step": 0.04,
-    "max_rotation_step": 0.1,
-    "reference_frame": "base"
+    "rate_hz": 30.0,
+    "translation_scale": 0.025,
+    "rotation_scale": 0.07,
+    "deadband": 0.01,
+    "max_translation_step": 0.025,
+    "max_rotation_step": 0.07,
+    "reference_frame": "base",
+    "stop_on_idle": true
   },
   "workspace": {
     "low": [0.0, -1.0, 0.0],
@@ -33,5 +34,12 @@
     "close_button": 0,
     "open_button": -1,
     "cooldown_s": 0.6
+  },
+  "reset": {
+    "enabled": true,
+    "button_indices": [0, 1],
+    "hold_s": 1.5,
+    "cooldown_s": 3.0,
+    "timeout_s": 30.0
   }
 }

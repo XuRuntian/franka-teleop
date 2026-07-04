@@ -13,6 +13,8 @@ class MasterState:
 
     `motion` is a relative 6D command, not an absolute pose:
     [x, y, z, roll, pitch, yaw].
+    `buttons` is a generic indexed button vector used by controller-level
+    commands such as gripper actions and joint reset.
     """
 
     motion: np.ndarray

@@ -26,13 +26,14 @@ def _nested_get(data: dict[str, Any], key: str, default: Any) -> Any:
 
 @dataclass
 class MotionConfig:
-    rate_hz: float = 20.0
-    translation_scale: float = 0.04
-    rotation_scale: float = 0.10
-    deadband: float = 0.001
-    max_translation_step: float = 0.04
-    max_rotation_step: float = 0.10
+    rate_hz: float = 30.0
+    translation_scale: float = 0.025
+    rotation_scale: float = 0.07
+    deadband: float = 0.01
+    max_translation_step: float = 0.025
+    max_rotation_step: float = 0.07
     reference_frame: str = "base"
+    stop_on_idle: bool = True
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "MotionConfig":
@@ -44,6 +45,7 @@ class MotionConfig:
             max_translation_step=float(data.get("max_translation_step", cls.max_translation_step)),
             max_rotation_step=float(data.get("max_rotation_step", cls.max_rotation_step)),
             reference_frame=str(data.get("reference_frame", cls.reference_frame)),
+            stop_on_idle=bool(data.get("stop_on_idle", cls.stop_on_idle)),
         )
 
     def validate(self) -> None:
@@ -51,6 +53,12 @@ class MotionConfig:
             raise ValueError("motion.rate_hz must be positive")
         if self.reference_frame not in {"base", "tcp"}:
             raise ValueError("motion.reference_frame must be 'base' or 'tcp'")
+        if self.deadband < 0:
+            raise ValueError("motion.deadband must be non-negative")
+        if self.max_translation_step <= 0:
+            raise ValueError("motion.max_translation_step must be positive")
+        if self.max_rotation_step <= 0:
+            raise ValueError("motion.max_rotation_step must be positive")
 
 
 @dataclass
@@ -142,6 +150,36 @@ class GripperConfig:
 
 
 @dataclass
+class ResetConfig:
+    enabled: bool = True
+    button_indices: tuple[int, ...] = (0, 1)
+    hold_s: float = 1.5
+    cooldown_s: float = 3.0
+    timeout_s: float = 30.0
+
+    @classmethod
+    def from_mapping(cls, data: dict[str, Any]) -> "ResetConfig":
+        button_indices = data.get("button_indices", cls.button_indices)
+        return cls(
+            enabled=bool(data.get("enabled", cls.enabled)),
+            button_indices=tuple(int(index) for index in button_indices),
+            hold_s=float(data.get("hold_s", cls.hold_s)),
+            cooldown_s=float(data.get("cooldown_s", cls.cooldown_s)),
+            timeout_s=float(data.get("timeout_s", cls.timeout_s)),
+        )
+
+    def validate(self) -> None:
+        if self.enabled and not self.button_indices:
+            raise ValueError("reset.button_indices must not be empty when reset is enabled")
+        if self.hold_s <= 0:
+            raise ValueError("reset.hold_s must be positive")
+        if self.cooldown_s < 0:
+            raise ValueError("reset.cooldown_s must be non-negative")
+        if self.timeout_s <= 0:
+            raise ValueError("reset.timeout_s must be positive")
+
+
+@dataclass
 class TeleopConfig:
     server_url: str = "http://127.0.0.2:5000/"
     request_timeout_s: float = 2.0
@@ -151,6 +189,7 @@ class TeleopConfig:
     workspace: WorkspaceConfig = field(default_factory=WorkspaceConfig)
     tool: ToolConfig = field(default_factory=ToolConfig)
     gripper: GripperConfig = field(default_factory=GripperConfig)
+    reset: ResetConfig = field(default_factory=ResetConfig)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "TeleopConfig":
@@ -163,6 +202,7 @@ class TeleopConfig:
             workspace=WorkspaceConfig.from_mapping(data.get("workspace", {})),
             tool=ToolConfig.from_mapping(data.get("tool", {})),
             gripper=GripperConfig.from_mapping(data.get("gripper", {})),
+            reset=ResetConfig.from_mapping(data.get("reset", {})),
         )
 
     @classmethod
@@ -174,6 +214,7 @@ class TeleopConfig:
         self.motion.validate()
         self.workspace.validate()
         self.tool.validate()
+        self.reset.validate()
 
     def apply_overrides(self, overrides: dict[str, Any]) -> None:
         for key, value in overrides.items():
@@ -187,8 +228,12 @@ class TeleopConfig:
                 self.motion.translation_scale = float(value)
             elif key == "rotation_scale":
                 self.motion.rotation_scale = float(value)
+            elif key == "deadband":
+                self.motion.deadband = float(value)
             elif key == "reference_frame":
                 self.motion.reference_frame = str(value)
+            elif key == "stop_on_idle":
+                self.motion.stop_on_idle = bool(value)
             elif key == "workspace_low":
                 self.workspace.low = _array(value, (3,), "workspace.low")
             elif key == "workspace_high":
@@ -199,6 +244,12 @@ class TeleopConfig:
                 self.tool.ee_tcp_quat = _array(value, (4,), "tool.ee_T_tcp.quat")
             elif key == "gripper_enabled":
                 self.gripper.enabled = bool(value)
+            elif key == "reset_enabled":
+                self.reset.enabled = bool(value)
+            elif key == "reset_button_indices":
+                self.reset.button_indices = tuple(int(index) for index in value)
+            elif key == "reset_hold_s":
+                self.reset.hold_s = float(value)
             else:
                 raise ValueError(f"Unknown override: {key}")
         self.validate()
