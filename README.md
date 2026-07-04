@@ -38,3 +38,26 @@ For a changed tool/TCP, edit `tool.ee_T_tcp` in
 `configs/spacemouse_teleop.json`. The client applies teleop motion at the TCP
 and converts the command back to the EE pose expected by the existing impedance
 controller.
+
+## Master Device Interface
+
+SpaceMouse is implemented as one `MasterDevice`. Other master devices should
+provide the same methods:
+
+```python
+class MasterDevice:
+    def start(self) -> None: ...
+    def close(self) -> None: ...
+    def get_state(self) -> MasterState: ...
+```
+
+`MasterState.motion` is a relative 6D command:
+
+```text
+[x, y, z, roll, pitch, yaw]
+```
+
+The controller exposes `compute_command(robot_state, master_state)` for code
+that needs the parsed command without sending it to the robot. The returned
+`TeleopCommand` includes raw master input, scaled/clipped deltas, current TCP
+pose, target TCP pose, and target EE pose.
