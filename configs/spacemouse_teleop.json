@@ -1,0 +1,37 @@
+{
+  "server_url": "http://127.0.0.2:5000/",
+  "request_timeout_s": 2.0,
+  "clear_errors": true,
+  "apply_load_on_start": false,
+  "motion": {
+    "rate_hz": 20.0,
+    "translation_scale": 0.04,
+    "rotation_scale": 0.1,
+    "deadband": 0.001,
+    "max_translation_step": 0.04,
+    "max_rotation_step": 0.1,
+    "reference_frame": "base"
+  },
+  "workspace": {
+    "low": [0.0, -1.0, 0.0],
+    "high": [1.0, 1.0, 1.0]
+  },
+  "tool": {
+    "name": "default",
+    "ee_T_tcp": {
+      "xyz": [0.0, 0.0, 0.0],
+      "quat": [0.0, 0.0, 0.0, 1.0]
+    },
+    "load": {
+      "mass": 0.0,
+      "center_of_mass": [0.0, 0.0, 0.0],
+      "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    }
+  },
+  "gripper": {
+    "enabled": true,
+    "close_button": 0,
+    "open_button": -1,
+    "cooldown_s": 0.6
+  }
+}
