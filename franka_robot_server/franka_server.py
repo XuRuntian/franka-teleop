@@ -17,6 +17,15 @@ import geometry_msgs.msg as geom_msg
 from dynamic_reconfigure.client import Client as ReconfClient
 
 FLAGS = flags.FLAGS
+DEFAULT_RESET_JOINT_TARGET = [
+    -0.04208642047256688,
+    -0.47113820970015696,
+    0.0625282082167652,
+    -2.109408819053455,
+    0.03543271986783029,
+    1.56700976778037,
+    -0.042043056534144564,
+]
 flags.DEFINE_string(
     "robot_ip", "172.16.0.2", "IP address of the franka robot's controller box"
 )
@@ -28,7 +37,7 @@ flags.DEFINE_string(
 )
 flags.DEFINE_list(
     "reset_joint_target",
-    [-0.04208642047256688,-0.47113820970015696,0.0625282082167652,-2.109408819053455,0.03543271986783029,1.56700976778037,-0.042043056534144564],
+    [str(value) for value in DEFAULT_RESET_JOINT_TARGET],
     "Target joint angles for the robot to reset to",
 )
 flags.DEFINE_string("flask_url", 
@@ -38,6 +47,16 @@ flags.DEFINE_string("flask_url",
 flags.DEFINE_string("ros_port", "11311", "Port for the ROS master to run on.")
 
 
+def parse_joint_positions(values, name):
+    try:
+        joint_positions = [float(value) for value in values]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must contain numeric joint positions") from exc
+    if len(joint_positions) != 7:
+        raise ValueError(f"{name} must contain exactly 7 joint positions, got {len(joint_positions)}")
+    return joint_positions
+
+
 class FrankaServer:
     """Handles the starting and stopping of the impedance controller
     (as well as backup) joint recovery policy."""
@@ -45,7 +64,7 @@ class FrankaServer:
     def __init__(self, robot_ip, gripper_type, ros_pkg_name, reset_joint_target):
         self.robot_ip = robot_ip
         self.ros_pkg_name = ros_pkg_name
-        self.reset_joint_target = reset_joint_target
+        self.reset_joint_target = parse_joint_positions(reset_joint_target, "reset_joint_target")
         self.gripper_type = gripper_type
 
         self.eepub = rospy.Publisher(
@@ -205,7 +224,7 @@ def main(_):
     ROBOT_IP = FLAGS.robot_ip
     GRIPPER_IP = FLAGS.gripper_ip
     GRIPPER_TYPE = FLAGS.gripper_type
-    RESET_JOINT_TARGET = FLAGS.reset_joint_target
+    RESET_JOINT_TARGET = parse_joint_positions(FLAGS.reset_joint_target, "reset_joint_target")
 
     webapp = Flask(__name__)
 
